@@ -1,19 +1,17 @@
-# 📊 Análisis de Campañas de Marketing Digital
+# 📊 Análisis de Campañas de Meta Ads
 
 > **Proyecto de portfolio — BI Analyst**  
-> Herramientas: `SQL (PostgreSQL)` · Estado: ✅ Completado
+> Herramientas: `SQL (PostgreSQL)` · Datos reales de Meta Ads (anonimizados) · Estado: ✅ Completado
 
 ---
 
 ## 🧭 Contexto de negocio
 
-Una empresa de e-commerce ejecuta campañas digitales simultáneas en **4 canales** (Google Ads, Facebook, Email y TikTok) durante el primer trimestre del año. El equipo de marketing necesita responder tres preguntas clave:
+Análisis de **17 campañas reales de Meta Ads** (Facebook/Instagram) de una institución educativa en México, entre el 8 de julio y el 5 de octubre de 2026. Las campañas persiguen distintos resultados (mensajes de WhatsApp, leads por formulario, clics a un enlace y visitas a una landing). El análisis responde:
 
-1. ¿Qué canal genera el **menor costo por conversión**?
-2. ¿Qué canal tiene la **mejor tendencia de crecimiento** mes a mes?
-3. ¿Cuáles son los **3 meses con mayor volumen de ventas** por canal?
-
-Este proyecto responde esas preguntas usando SQL puro — desde exploración hasta análisis avanzado con CTEs y Window Functions.
+1. ¿Dónde se concentra el gasto y qué **costo por resultado** tiene cada tipo de campaña?
+2. ¿Cómo evoluciona el **costo por mensaje** mes a mes?
+3. ¿Qué campañas son las más y las menos eficientes?
 
 ---
 
@@ -21,19 +19,25 @@ Este proyecto responde esas preguntas usando SQL puro — desde exploración has
 
 Archivo: [`data/campanas.csv`](data/campanas.csv) · Esquema: [`sql/00_schema.sql`](sql/00_schema.sql)
 
+Extraído de la API de Meta Ads (nivel campaña, desglose mensual). **Anonimizado:** los nombres de campaña se sustituyeron por etiquetas (`Campaña 01`…), se omiten IDs de cuenta y campaña, y el gasto se redondea a pesos enteros.
+
 | Campo | Descripción |
 |---|---|
-| `id_campana` | Identificador único |
-| `canal` | Canal de adquisición (Google Ads, Facebook, Email, TikTok) |
-| `pais` | País de la campaña (México, Colombia, Argentina) |
-| `mes` | Primer día del mes (enero–marzo 2025) |
-| `impresiones` | Número de veces que se mostró el anuncio |
-| `clicks` | Clics totales recibidos |
-| `costo` | Gasto total en la campaña (USD) |
-| `conversiones` | Número de conversiones generadas |
+| `id_registro` | Identificador del registro |
+| `campana` | Etiqueta anonimizada de la campaña |
+| `tipo_resultado` | Resultado que optimiza la campaña: `mensajes_whatsapp`, `leads_formulario`, `clicks_enlace`, `vistas_landing` |
+| `estado` | `activa` o `pausada` (al 7 de octubre de 2026) |
+| `mes` | Primer día del mes |
+| `impresiones`, `clicks` | Impresiones y clics (todos) |
+| `costo_mxn` | Gasto en pesos mexicanos |
+| `resultados` | Resultados reportados por Meta; vacío si no los reportó |
 
-**Registros:** 36 campañas (4 canales × 3 países × 3 meses)
-**Fuente:** dataset **simulado** con métricas de marketing digital plausibles; no son datos reales de ninguna empresa.
+**Registros:** 36 (campaña × mes con gasto) · **Gasto total:** $85,113 MXN
+
+**Limitaciones**
+- Julio es parcial (datos desde el 8) y octubre llega solo al día 5.
+- Un "resultado" no es comparable entre tipos (un mensaje no equivale a un clic), por lo que el costo por resultado solo se compara **dentro** de cada tipo.
+- Hay 3 registros de campañas de leads sin resultado reportado; se excluyen del costo por resultado.
 
 ---
 
@@ -41,24 +45,23 @@ Archivo: [`data/campanas.csv`](data/campanas.csv) · Esquema: [`sql/00_schema.sq
 
 | Script | Contenido |
 |---|---|
-| [`01_exploracion.sql`](sql/01_exploracion.sql) | Vista general, conteo por canal/país, rango de fechas |
-| [`02_kpis_por_canal.sql`](sql/02_kpis_por_canal.sql) | Gasto, conversiones, CPA, % del gasto, CTR y tasa de conversión |
-| [`03_top_campanas.sql`](sql/03_top_campanas.sql) | Top por clicks, top más eficientes, campañas sobre el promedio |
-| [`04_tendencia_mensual.sql`](sql/04_tendencia_mensual.sql) | Crecimiento mes a mes con `LAG` y `FIRST_VALUE`/`LAST_VALUE` |
-| [`05_window_functions.sql`](sql/05_window_functions.sql) | CTEs, `ROW_NUMBER`, `RANK`, top 3 meses por canal |
+| [`01_exploracion.sql`](sql/01_exploracion.sql) | Vista general, registros por tipo, rango de fechas |
+| [`02_kpis_por_tipo.sql`](sql/02_kpis_por_tipo.sql) | Gasto, resultados, costo por resultado, % del gasto, CTR y CPC |
+| [`03_top_campanas.sql`](sql/03_top_campanas.sql) | Top por gasto, más eficientes, sobre el promedio |
+| [`04_tendencia_mensual.sql`](sql/04_tendencia_mensual.sql) | Tendencia mensual con `LAG` |
+| [`05_window_functions.sql`](sql/05_window_functions.sql) | `RANK`, `ROW_NUMBER`, gasto acumulado |
 
-### Nota metodológica
-El costo por conversión (CPA) se calcula como `SUM(costo) / SUM(conversiones)`, que pondera por volumen. Promediar el ratio de cada campaña (`AVG(costo / conversiones)`) da el mismo peso a campañas pequeñas y grandes y distorsiona la comparación entre canales.
+El costo por resultado se calcula como `SUM(costo) / SUM(resultados)`, que pondera por volumen; promediar el ratio de cada campaña distorsiona la comparación.
 
 ```sql
 SELECT
-  canal,
-  SUM(costo)        AS gasto_total,
-  SUM(conversiones) AS conv_total,
-  ROUND(SUM(costo) / NULLIF(SUM(conversiones), 0), 2) AS costo_por_conv
+  tipo_resultado,
+  SUM(costo_mxn)  AS gasto_mxn,
+  SUM(resultados) AS resultados,
+  ROUND(SUM(costo_mxn) FILTER (WHERE resultados IS NOT NULL)
+        / NULLIF(SUM(resultados), 0), 2) AS costo_por_resultado
 FROM campanas
-GROUP BY canal
-ORDER BY costo_por_conv ASC;
+GROUP BY tipo_resultado;
 ```
 
 ---
@@ -67,21 +70,20 @@ ORDER BY costo_por_conv ASC;
 
 | # | Hallazgo | Dato |
 |---|---|---|
-| 1 | **Email tiene el menor costo por conversión** | $1.18 USD vs $38.77 de Google Ads (~33x más eficiente) |
-| 2 | **Email genera el mayor volumen de conversiones** | 2,063 de 3,520 totales (59%) con solo 4.7% del gasto |
-| 3 | **Google Ads concentra el gasto** | $29,854 USD (57.7% del total de $51,730) y solo 770 conversiones |
-| 4 | **TikTok tiene la mejor tendencia** | Único canal con crecimiento mensual positivo en ambos meses: +9.5% y +35.9% (+48.8% en el trimestre) |
-| 5 | **Facebook va a la baja** | Conversiones caen cada mes: 140 → 132 → 114 (−18.6%) |
-
-> Cifras calculadas sobre el dataset simulado incluido; reprodúcelas con los scripts de `sql/`.
+| 1 | **El gasto se concentra en WhatsApp** | 94.9% del gasto ($80,788 MXN) y 2,351 mensajes a **$34.36 MXN por mensaje** |
+| 2 | **El costo por mensaje sube cada mes** | $26.71 (jul) → $35.38 (ago) → $48.55 (sep) → $60.63 (oct, parcial); +32.5%, +37.2% y +24.9% mes a mes |
+| 3 | **Las campañas activas son menos eficientes que las pausadas** | $48.71 vs $32.59 por mensaje |
+| 4 | **Enorme diferencia de eficiencia entre campañas** | La mejor de WhatsApp cuesta $9.77 por mensaje; las de leads por formulario, $202–$276 por lead |
+| 5 | **Las campañas de tráfico son las más baratas por resultado** | ~$0.45 MXN por clic al enlace o visita a landing (no equivalen a mensajes ni leads) |
 
 ---
 
 ## 📌 Recomendaciones de negocio
 
-- **Reasignar presupuesto:** mover parte del gasto de Google Ads hacia Email y probar el impacto. Email es muy eficiente, pero su audiencia es limitada, así que el CPA marginal probablemente subirá al escalar.
-- **Escalar TikTok de forma gradual:** es el único canal en crecimiento sostenido, aunque su CPA ($23.71) sigue siendo alto frente a Email.
-- **Revisar Facebook:** contenido y segmentación, ya que sus conversiones bajan mes a mes.
+- **Revisar las campañas activas de WhatsApp**: su costo por mensaje ($48.71) es ~50% mayor que el de las pausadas. Probar creativos y segmentaciones de las campañas más eficientes (p. ej. la Campaña 04, $9.77).
+- **Vigilar la tendencia al alza del costo por mensaje**: puede reflejar saturación de audiencia o fatiga de creativos; conviene renovar creativos y ampliar audiencias.
+- **Replantear las campañas de leads por formulario**: con $200+ por lead frente a ~$34 por mensaje, hay que validar si convierten mejor en matrícula para justificar el costo.
+- **Medir calidad, no solo volumen**: este análisis llega hasta mensajes y leads; conectar con inscripciones daría el costo por alumno real.
 
 ---
 
@@ -93,15 +95,15 @@ marketing-campaign-analysis/
 ├── README.md
 │
 ├── data/
-│   └── campanas.csv              ← Dataset simulado (36 filas)
+│   └── campanas.csv              ← Datos reales anonimizados (36 filas)
 │
 └── sql/
     ├── 00_schema.sql             ← CREATE TABLE + carga del CSV
-    ├── 01_exploracion.sql        ← SELECT, GROUP BY, ORDER BY
-    ├── 02_kpis_por_canal.sql     ← SUM, CPA, CTR, tasa de conversión
-    ├── 03_top_campanas.sql       ← LIMIT, subqueries
-    ├── 04_tendencia_mensual.sql  ← CTEs, LAG, FIRST_VALUE/LAST_VALUE
-    └── 05_window_functions.sql   ← ROW_NUMBER, RANK
+    ├── 01_exploracion.sql        ← SELECT, GROUP BY, FILTER
+    ├── 02_kpis_por_tipo.sql      ← SUM, costo por resultado, CTR, CPC
+    ├── 03_top_campanas.sql       ← LIMIT, HAVING, subqueries
+    ├── 04_tendencia_mensual.sql  ← CTEs, LAG
+    └── 05_window_functions.sql   ← RANK, ROW_NUMBER, SUM OVER
 ```
 
 ---
@@ -110,14 +112,9 @@ marketing-campaign-analysis/
 
 **Opción A — PostgreSQL local** (desde la raíz del repo)
 ```bash
-# 1. Crear la base de datos
 createdb marketing_db
-
-# 2. Crear la tabla e importar el dataset
-psql marketing_db -f sql/00_schema.sql
-
-# 3. Ejecutar los análisis en orden numérico
-psql marketing_db -f sql/01_exploracion.sql
+psql marketing_db -f sql/00_schema.sql      # crea la tabla y carga el CSV
+psql marketing_db -f sql/02_kpis_por_tipo.sql
 ```
 
 **Opción B — Sin instalar nada (online)**

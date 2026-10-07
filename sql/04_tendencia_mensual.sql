@@ -1,37 +1,40 @@
--- Tendencia mes a mes por canal (LAG)
+-- Tendencia mes a mes (LAG).
+-- Nota: julio es parcial (datos desde el 8) y octubre llega solo al día 5,
+-- así que el análisis de tendencia se centra en agosto vs. septiembre.
 
--- Conversiones mensuales por canal y crecimiento vs. mes anterior
+-- Gasto, mensajes de WhatsApp y costo por mensaje por mes, con variación vs. mes anterior
 WITH mensual AS (
-  SELECT canal, mes, SUM(conversiones) AS conversiones
+  SELECT
+    mes,
+    SUM(costo_mxn)  AS gasto_mxn,
+    SUM(resultados) AS mensajes,
+    ROUND(SUM(costo_mxn) / NULLIF(SUM(resultados), 0), 2) AS costo_por_mensaje
   FROM campanas
-  GROUP BY canal, mes
+  WHERE tipo_resultado = 'mensajes_whatsapp'
+  GROUP BY mes
 )
 SELECT
-  canal,
   mes,
-  conversiones,
-  LAG(conversiones) OVER (PARTITION BY canal ORDER BY mes) AS conv_mes_anterior,
-  ROUND(
-    100.0 * (conversiones - LAG(conversiones) OVER (PARTITION BY canal ORDER BY mes))
-    / NULLIF(LAG(conversiones) OVER (PARTITION BY canal ORDER BY mes), 0),
-    1
-  ) AS crecimiento_pct
+  gasto_mxn,
+  mensajes,
+  costo_por_mensaje,
+  LAG(costo_por_mensaje) OVER (ORDER BY mes) AS cpr_mes_anterior,
+  ROUND(100.0 * (costo_por_mensaje - LAG(costo_por_mensaje) OVER (ORDER BY mes))
+        / NULLIF(LAG(costo_por_mensaje) OVER (ORDER BY mes), 0), 1) AS variacion_cpr_pct
 FROM mensual
-ORDER BY canal, mes;
+ORDER BY mes;
 
--- Crecimiento total del trimestre (último mes vs. primer mes) por canal
+-- Gasto mensual por tipo de resultado y variación vs. mes anterior
 WITH mensual AS (
-  SELECT canal, mes, SUM(conversiones) AS conversiones
+  SELECT tipo_resultado, mes, SUM(costo_mxn) AS gasto_mxn
   FROM campanas
-  GROUP BY canal, mes
+  GROUP BY tipo_resultado, mes
 )
-SELECT DISTINCT
-  canal,
-  FIRST_VALUE(conversiones) OVER w AS conv_primer_mes,
-  LAST_VALUE(conversiones)  OVER w AS conv_ultimo_mes,
-  ROUND(100.0 * (LAST_VALUE(conversiones) OVER w - FIRST_VALUE(conversiones) OVER w)
-        / FIRST_VALUE(conversiones) OVER w, 1) AS crecimiento_trimestre_pct
+SELECT
+  tipo_resultado,
+  mes,
+  gasto_mxn,
+  ROUND(100.0 * (gasto_mxn - LAG(gasto_mxn) OVER (PARTITION BY tipo_resultado ORDER BY mes))
+        / NULLIF(LAG(gasto_mxn) OVER (PARTITION BY tipo_resultado ORDER BY mes), 0), 1) AS variacion_gasto_pct
 FROM mensual
-WINDOW w AS (PARTITION BY canal ORDER BY mes
-             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-ORDER BY crecimiento_trimestre_pct DESC;
+ORDER BY tipo_resultado, mes;

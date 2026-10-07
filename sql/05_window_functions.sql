@@ -1,55 +1,40 @@
 -- Análisis avanzado con CTEs y Window Functions
 
--- Ranking de campañas por conversiones dentro de cada canal
+-- Ranking de campañas de WhatsApp por mensajes dentro de cada mes
 SELECT
-  canal,
-  pais,
   mes,
-  conversiones,
-  ROW_NUMBER() OVER (PARTITION BY canal ORDER BY conversiones DESC) AS ranking
-FROM campanas;
+  campana,
+  resultados AS mensajes,
+  RANK() OVER (PARTITION BY mes ORDER BY resultados DESC) AS posicion
+FROM campanas
+WHERE tipo_resultado = 'mensajes_whatsapp' AND resultados IS NOT NULL
+ORDER BY mes, posicion;
 
--- Mejor campaña de cada canal (ranking = 1)
-WITH mejor_campana AS (
+-- Mejor campaña de cada tipo de resultado por costo por resultado (ROW_NUMBER)
+WITH acumulado AS (
   SELECT
-    canal,
-    pais,
-    mes,
-    conversiones,
-    ROW_NUMBER() OVER (PARTITION BY canal ORDER BY conversiones DESC) AS rn
+    tipo_resultado,
+    campana,
+    SUM(costo_mxn)  AS gasto_mxn,
+    SUM(resultados) AS resultados,
+    SUM(costo_mxn) / NULLIF(SUM(resultados), 0) AS cpr
   FROM campanas
-)
-SELECT canal, pais, mes, conversiones
-FROM mejor_campana
-WHERE rn = 1
-ORDER BY conversiones DESC;
-
--- Top 3 meses con más conversiones por canal (RANK)
-WITH mensual AS (
-  SELECT canal, mes, SUM(conversiones) AS conversiones
-  FROM campanas
-  GROUP BY canal, mes
+  GROUP BY tipo_resultado, campana
+  HAVING SUM(resultados) > 0
 ),
 ranked AS (
-  SELECT
-    canal,
-    mes,
-    conversiones,
-    RANK() OVER (PARTITION BY canal ORDER BY conversiones DESC) AS posicion
-  FROM mensual
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY tipo_resultado ORDER BY cpr ASC) AS rn
+  FROM acumulado
 )
-SELECT canal, mes, conversiones, posicion
+SELECT tipo_resultado, campana, gasto_mxn, resultados, ROUND(cpr, 2) AS costo_por_resultado
 FROM ranked
-WHERE posicion <= 3
-ORDER BY canal, posicion;
+WHERE rn = 1
+ORDER BY tipo_resultado;
 
--- Canal con menor costo por conversión
-WITH costo_eficiencia AS (
-  SELECT canal, SUM(costo) / NULLIF(SUM(conversiones), 0) AS costo_por_conv
-  FROM campanas
-  GROUP BY canal
+-- Gasto acumulado por mes (SUM como window function)
+WITH mensual AS (
+  SELECT mes, SUM(costo_mxn) AS gasto_mxn FROM campanas GROUP BY mes
 )
-SELECT canal, ROUND(costo_por_conv, 2) AS costo_por_conv
-FROM costo_eficiencia
-ORDER BY costo_por_conv ASC
-LIMIT 1;
+SELECT mes, gasto_mxn, SUM(gasto_mxn) OVER (ORDER BY mes) AS gasto_acumulado_mxn
+FROM mensual
+ORDER BY mes;

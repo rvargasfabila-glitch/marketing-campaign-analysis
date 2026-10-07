@@ -1,27 +1,30 @@
--- Rankings y top campañas
+-- Rankings por campaña (acumulado de todos los meses)
 
--- Top 3 campañas con más clicks
-SELECT id_campana, canal, pais, mes, clicks
+-- Top 5 campañas con más gasto
+SELECT campana, tipo_resultado, estado, SUM(costo_mxn) AS gasto_mxn
 FROM campanas
-ORDER BY clicks DESC
-LIMIT 3;
+GROUP BY campana, tipo_resultado, estado
+ORDER BY gasto_mxn DESC
+LIMIT 5;
 
--- Top 3 campañas más eficientes (menor costo por conversión)
+-- Top 5 campañas de WhatsApp más eficientes (menor costo por mensaje)
 SELECT
-  id_campana,
-  canal,
-  pais,
-  mes,
-  costo,
-  conversiones,
-  ROUND(costo / NULLIF(conversiones, 0), 2) AS costo_por_conv
+  campana,
+  SUM(costo_mxn)  AS gasto_mxn,
+  SUM(resultados) AS mensajes,
+  ROUND(SUM(costo_mxn) / NULLIF(SUM(resultados), 0), 2) AS costo_por_mensaje
 FROM campanas
-WHERE conversiones > 0
-ORDER BY costo_por_conv ASC
-LIMIT 3;
+WHERE tipo_resultado = 'mensajes_whatsapp'
+GROUP BY campana
+HAVING SUM(resultados) > 0
+ORDER BY costo_por_mensaje ASC
+LIMIT 5;
 
--- Campañas con conversiones por encima del promedio general
-SELECT id_campana, canal, pais, mes, conversiones
+-- Campañas que gastaron más que el promedio por campaña
+SELECT campana, SUM(costo_mxn) AS gasto_mxn
 FROM campanas
-WHERE conversiones > (SELECT AVG(conversiones) FROM campanas)
-ORDER BY conversiones DESC;
+GROUP BY campana
+HAVING SUM(costo_mxn) > (
+  SELECT AVG(gasto) FROM (SELECT SUM(costo_mxn) AS gasto FROM campanas GROUP BY campana) t
+)
+ORDER BY gasto_mxn DESC;

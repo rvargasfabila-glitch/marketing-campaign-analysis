@@ -1,6 +1,6 @@
 -- Tendencia mes a mes (LAG).
--- Nota: julio es parcial (datos desde el 8) y octubre llega solo al día 5,
--- así que el análisis de tendencia se centra en agosto vs. septiembre.
+-- Nota: el primer y el último mes son parciales (la extracción no cubre el mes
+-- completo), así que la tendencia es más confiable en los meses intermedios.
 
 -- Gasto, mensajes de WhatsApp y costo por mensaje por mes, con variación vs. mes anterior
 WITH mensual AS (

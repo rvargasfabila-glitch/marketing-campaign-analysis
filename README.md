@@ -7,7 +7,7 @@
 
 ## 🧭 Contexto de negocio
 
-Análisis de **17 campañas reales de Meta Ads** (Facebook/Instagram) de una institución educativa en México, entre el 8 de julio y el 5 de octubre de 2026. Las campañas persiguen distintos resultados (mensajes de WhatsApp, leads por formulario, clics a un enlace y visitas a una landing). El análisis responde:
+Análisis de **17 campañas reales de Meta Ads** (Facebook/Instagram) de una cuenta publicitaria de servicios, durante aproximadamente tres meses. Las campañas persiguen distintos resultados (mensajes de WhatsApp, leads por formulario, clics a un enlace y visitas a una landing). El análisis responde:
 
 1. ¿Dónde se concentra el gasto y qué **costo por resultado** tiene cada tipo de campaña?
 2. ¿Cómo evoluciona el **costo por mensaje** mes a mes?
@@ -26,16 +26,16 @@ Extraído de la API de Meta Ads (nivel campaña, desglose mensual). **Anonimizad
 | `id_registro` | Identificador del registro |
 | `campana` | Etiqueta anonimizada de la campaña |
 | `tipo_resultado` | Resultado que optimiza la campaña: `mensajes_whatsapp`, `leads_formulario`, `clicks_enlace`, `vistas_landing` |
-| `estado` | `activa` o `pausada` (al 7 de octubre de 2026) |
+| `estado` | `activa` o `pausada` (al cierre de la extracción) |
 | `mes` | Primer día del mes |
 | `impresiones`, `clicks` | Impresiones y clics (todos) |
 | `costo_mxn` | Gasto en pesos mexicanos |
 | `resultados` | Resultados reportados por Meta; vacío si no los reportó |
 
-**Registros:** 36 (campaña × mes con gasto) · **Gasto total:** $85,113 MXN
+**Registros:** 36 (campaña × mes con gasto) · **Moneda:** MXN
 
 **Limitaciones**
-- Julio es parcial (datos desde el 8) y octubre llega solo al día 5.
+- El primer mes y el último son parciales (la extracción no cubre el mes completo).
 - Un "resultado" no es comparable entre tipos (un mensaje no equivale a un clic), por lo que el costo por resultado solo se compara **dentro** de cada tipo.
 - Hay 3 registros de campañas de leads sin resultado reportado; se excluyen del costo por resultado.
 
@@ -70,8 +70,8 @@ GROUP BY tipo_resultado;
 
 | # | Hallazgo | Dato |
 |---|---|---|
-| 1 | **El gasto se concentra en WhatsApp** | 94.9% del gasto ($80,788 MXN) y 2,351 mensajes a **$34.36 MXN por mensaje** |
-| 2 | **El costo por mensaje sube cada mes** | $26.71 (jul) → $35.38 (ago) → $48.55 (sep) → $60.63 (oct, parcial); +32.5%, +37.2% y +24.9% mes a mes |
+| 1 | **El gasto se concentra en WhatsApp** | 94.9% del gasto y 2,351 mensajes a **$34.36 MXN por mensaje** |
+| 2 | **El costo por mensaje sube cada mes** | $26.71 (mes 1) → $35.38 (mes 2) → $48.55 (mes 3) → $60.63 (mes 4, parcial); +32.5%, +37.2% y +24.9% mes a mes |
 | 3 | **Las campañas activas son menos eficientes que las pausadas** | $48.71 vs $32.59 por mensaje |
 | 4 | **Enorme diferencia de eficiencia entre campañas** | La mejor de WhatsApp cuesta $9.77 por mensaje; las de leads por formulario, $202–$276 por lead |
 | 5 | **Las campañas de tráfico son las más baratas por resultado** | ~$0.45 MXN por clic al enlace o visita a landing (no equivalen a mensajes ni leads) |
@@ -82,8 +82,8 @@ GROUP BY tipo_resultado;
 
 - **Revisar las campañas activas de WhatsApp**: su costo por mensaje ($48.71) es ~50% mayor que el de las pausadas. Probar creativos y segmentaciones de las campañas más eficientes (p. ej. la Campaña 04, $9.77).
 - **Vigilar la tendencia al alza del costo por mensaje**: puede reflejar saturación de audiencia o fatiga de creativos; conviene renovar creativos y ampliar audiencias.
-- **Replantear las campañas de leads por formulario**: con $200+ por lead frente a ~$34 por mensaje, hay que validar si convierten mejor en matrícula para justificar el costo.
-- **Medir calidad, no solo volumen**: este análisis llega hasta mensajes y leads; conectar con inscripciones daría el costo por alumno real.
+- **Replantear las campañas de leads por formulario**: con $200+ por lead frente a ~$34 por mensaje, hay que validar si convierten mejor en ventas para justificar el costo.
+- **Medir calidad, no solo volumen**: este análisis llega hasta mensajes y leads; conectar con ventas o clientes cerrados daría el costo de adquisición real.
 
 ---
 

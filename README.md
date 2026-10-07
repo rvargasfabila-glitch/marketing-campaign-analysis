@@ -140,8 +140,8 @@ Jesus Ricardo Vargas Fabila
 Licenciatura en Mercadotecnia · Maestría en Ciencia de Datos (en curso)  
 📍 Morelos, México · Disponible para trabajo remoto
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Conectar-0A66C2?style=flat&logo=linkedin)](https://linkedin.com/in/tu-usuario)
-[![GitHub](https://img.shields.io/badge/GitHub-Portfolio-181717?style=flat&logo=github)](https://github.com/tu-usuario)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Conectar-0A66C2?style=flat&logo=linkedin)](https://www.linkedin.com/in/ricardo-vargas-04a025249)
+[![GitHub](https://img.shields.io/badge/GitHub-Portfolio-181717?style=flat&logo=github)](https://github.com/rvargasfabila-glitch)
 
 ---
 
